@@ -1,0 +1,15 @@
+global using System;
+global using System.Diagnostics;
+global using System.Globalization;
+global using System.Runtime.InteropServices;
+global using System.Threading;
+global using System.Threading.Tasks;
+global using HostAgent;
+global using HostAgent.Generated.Endpoints;
+global using HostAgent.Generated.Systems.Handlers;
+global using HostAgent.Generated.Systems.Models;
+global using HostAgent.Generated.Systems.Parameters;
+global using HostAgent.Generated.Systems.Results;
+global using Linksoft.PowerController.HostAgent.Services;
+global using Scalar.AspNetCore;
+global using Serilog;

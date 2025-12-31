@@ -1,0 +1,153 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Power Controller Host Agent API
+  description: REST API for managing power states and retrieving system information
+  license:
+    name: MIT
+servers:
+  - url: /api/v1
+paths:
+  /system/info:
+    get:
+      summary: Get system information
+      description: Returns system information including service and server uptime, shutdown state, and OS details
+      operationId: getSystemInfo
+      tags:
+        - system
+      responses:
+        '200':
+          description: System information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemInfo"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /system/shutdown:
+    post:
+      summary: Initiate system shutdown
+      description: Initiates a system shutdown with configurable mode (immediate, delayed, or scheduled)
+      operationId: setShutdown
+      tags:
+        - system
+      requestBody:
+        description: Shutdown configuration
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShutdownRequest"
+      responses:
+        '202':
+          description: Shutdown initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShutdownResponse"
+        '409':
+          description: Shutdown already in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    SystemInfo:
+      title: SystemInfo
+      type: object
+      required:
+        - serviceUptime
+        - serverUptime
+        - shutdownInProgress
+        - operatingSystem
+        - hostname
+      properties:
+        serviceUptime:
+          type: string
+          description: How long the service has been running
+          example: "01:30:15.1234567"
+        serverUptime:
+          type: string
+          description: How long the server/OS has been running
+          example: "2.05:30:00"
+        shutdownInProgress:
+          type: boolean
+          description: Whether a shutdown is currently scheduled or in progress
+        shutdownScheduledAt:
+          type: string
+          format: date-time
+          description: When the shutdown will occur (if scheduled)
+          nullable: true
+        operatingSystem:
+          type: string
+          description: Operating system description
+          example: "Microsoft Windows 11 Pro"
+        hostname:
+          type: string
+          description: Machine hostname
+          example: "WORKSTATION-01"
+    ShutdownRequest:
+      title: ShutdownRequest
+      type: object
+      properties:
+        mode:
+          $ref: "#/components/schemas/ShutdownMode"
+        delaySeconds:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 86400
+          description: Seconds to wait before shutdown (for Delayed mode)
+          example: 60
+        scheduledAt:
+          type: string
+          format: date-time
+          description: When to perform shutdown (for Scheduled mode)
+    ShutdownMode:
+      type: string
+      enum:
+        - Immediate
+        - Delayed
+        - Scheduled
+      default: Immediate
+      description: The shutdown mode to use
+    ShutdownResponse:
+      title: ShutdownResponse
+      type: object
+      required:
+        - message
+        - shutdownScheduledAt
+      properties:
+        message:
+          type: string
+          description: Status message
+          example: "Shutdown scheduled successfully"
+        shutdownScheduledAt:
+          type: string
+          format: date-time
+          description: When the shutdown will occur
+    Error:
+      title: Error
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: integer
+          format: int32
+          description: Error code
+        message:
+          type: string
+          description: Error message

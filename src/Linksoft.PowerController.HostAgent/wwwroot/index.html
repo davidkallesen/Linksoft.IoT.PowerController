@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Controller Host Agent</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .card h2 {
+            margin-top: 0;
+            color: #444;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover { background: #0052a3; }
+        button.danger { background: #cc0000; }
+        button.danger:hover { background: #990000; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 150px 1fr;
+            gap: 8px;
+        }
+        .info-grid dt { font-weight: bold; color: #666; }
+        .info-grid dd { margin: 0; }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #666;
+        }
+        .form-group select, .form-group input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        #systemInfo { display: none; }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #666;
+            font-size: 12px;
+        }
+        .footer a { color: #0066cc; }
+    </style>
+</head>
+<body>
+    <h1>Power Controller Host Agent</h1>
+
+    <div class="card">
+        <h2>System Information</h2>
+        <button id="btnRefresh" onclick="getSystemInfo()">Refresh</button>
+        <div id="systemInfo">
+            <dl class="info-grid">
+                <dt>Service Uptime</dt>
+                <dd id="serviceUptime">-</dd>
+                <dt>Server Uptime</dt>
+                <dd id="serverUptime">-</dd>
+                <dt>Operating System</dt>
+                <dd id="operatingSystem">-</dd>
+                <dt>Hostname</dt>
+                <dd id="hostname">-</dd>
+                <dt>Shutdown Status</dt>
+                <dd id="shutdownStatus">-</dd>
+            </dl>
+        </div>
+        <div id="infoStatus"></div>
+    </div>
+
+    <div class="card">
+        <h2>Shutdown Control</h2>
+        <div class="form-group">
+            <label for="shutdownMode">Mode</label>
+            <select id="shutdownMode" onchange="updateShutdownForm()">
+                <option value="Immediate">Immediate</option>
+                <option value="Delayed">Delayed</option>
+                <option value="Scheduled">Scheduled</option>
+            </select>
+        </div>
+        <div class="form-group" id="delayGroup" style="display:none;">
+            <label for="delaySeconds">Delay (seconds)</label>
+            <input type="number" id="delaySeconds" min="1" max="86400" value="60">
+        </div>
+        <div class="form-group" id="scheduleGroup" style="display:none;">
+            <label for="scheduledAt">Scheduled Time</label>
+            <input type="datetime-local" id="scheduledAt">
+        </div>
+        <button class="danger" onclick="initiateShutdown()">Initiate Shutdown</button>
+        <div id="shutdownResult"></div>
+    </div>
+
+    <div class="card">
+        <h2>API Documentation</h2>
+        <p style="margin: 0 0 15px 0; color: #666;">
+            For developers: View the full OpenAPI specification with interactive testing capabilities.
+        </p>
+        <a href="/scalar/v1" style="display: inline-block; background: #0066cc; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none;">
+            Open Scalar API Documentation
+        </a>
+    </div>
+
+    <script>
+        function updateShutdownForm() {
+            const mode = document.getElementById('shutdownMode').value;
+            document.getElementById('delayGroup').style.display = mode === 'Delayed' ? 'block' : 'none';
+            document.getElementById('scheduleGroup').style.display = mode === 'Scheduled' ? 'block' : 'none';
+        }
+
+        async function getSystemInfo() {
+            const btn = document.getElementById('btnRefresh');
+            const statusDiv = document.getElementById('infoStatus');
+            btn.disabled = true;
+            statusDiv.innerHTML = '';
+
+            try {
+                const response = await fetch('/system/info');
+                const data = await response.json();
+
+                if (response.ok) {
+                    document.getElementById('systemInfo').style.display = 'block';
+                    document.getElementById('serviceUptime').textContent = data.serviceUptime;
+                    document.getElementById('serverUptime').textContent = data.serverUptime;
+                    document.getElementById('operatingSystem').textContent = data.operatingSystem;
+                    document.getElementById('hostname').textContent = data.hostname;
+
+                    if (data.shutdownInProgress) {
+                        const scheduledAt = data.shutdownScheduledAt
+                            ? new Date(data.shutdownScheduledAt).toLocaleString()
+                            : 'Unknown';
+                        document.getElementById('shutdownStatus').innerHTML =
+                            `<strong style="color:#cc0000;">Shutdown scheduled for ${scheduledAt}</strong>`;
+                    } else {
+                        document.getElementById('shutdownStatus').textContent = 'No shutdown scheduled';
+                    }
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">Error: ${data.message || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function initiateShutdown() {
+            if (!confirm('Are you sure you want to initiate a shutdown?')) {
+                return;
+            }
+
+            const mode = document.getElementById('shutdownMode').value;
+            const resultDiv = document.getElementById('shutdownResult');
+
+            const body = { mode };
+
+            if (mode === 'Delayed') {
+                body.delaySeconds = parseInt(document.getElementById('delaySeconds').value);
+            } else if (mode === 'Scheduled') {
+                const scheduledAt = document.getElementById('scheduledAt').value;
+                if (scheduledAt) {
+                    body.scheduledAt = new Date(scheduledAt).toISOString();
+                }
+            }
+
+            try {
+                const response = await fetch('/system/shutdown', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const data = await response.json();
+
+                if (response.ok || response.status === 202) {
+                    const scheduledAt = new Date(data.shutdownScheduledAt).toLocaleString();
+                    resultDiv.innerHTML = `<div class="status success">${data.message}<br>Scheduled for: ${scheduledAt}</div>`;
+                    getSystemInfo();
+                } else if (response.status === 409) {
+                    resultDiv.innerHTML = `<div class="status warning">Shutdown already in progress</div>`;
+                } else {
+                    resultDiv.innerHTML = `<div class="status error">Error: ${data.message || 'Unknown error'}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Load system info on page load
+        getSystemInfo();
+
+        // Set default scheduled time to now + 5 minutes
+        const defaultTime = new Date(Date.now() + 5 * 60 * 1000);
+        document.getElementById('scheduledAt').value = defaultTime.toISOString().slice(0, 16);
+    </script>
+</body>
+</html>
