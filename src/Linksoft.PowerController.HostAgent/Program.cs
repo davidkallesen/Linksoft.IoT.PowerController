@@ -15,6 +15,10 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
+    // Enable running as Windows Service or Linux systemd daemon
+    builder.Host.UseWindowsService();
+    builder.Host.UseSystemd();
+
     builder.Services.AddSerilog();
     builder.Services.AddOpenApi();
     builder.Services.AddSingleton<ISystemService, SystemService>();
