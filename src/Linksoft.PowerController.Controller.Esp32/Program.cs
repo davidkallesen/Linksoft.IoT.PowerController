@@ -1,14 +1,9 @@
-using System.Diagnostics;
-using System.Threading;
-
 namespace Linksoft.PowerController.Controller.Esp32
 {
     public class Program
     {
         public static void Main()
         {
-            Debug.WriteLine("Hello from nanoFramework!");
-
             Thread.Sleep(Timeout.Infinite);
 
             // Browse our samples repository: https://github.com/nanoframework/samples

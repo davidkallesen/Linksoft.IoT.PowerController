@@ -5,23 +5,28 @@ namespace Linksoft.PowerController.HostAgent.ApiHandlers;
 /// </summary>
 public sealed class SetShutdownHandler : ISetShutdownHandler
 {
-    private readonly ISystemService systemService;
     private readonly ILogger<SetShutdownHandler> logger;
+    private readonly ISystemService systemService;
 
-    public SetShutdownHandler(ISystemService systemService, ILogger<SetShutdownHandler> logger)
+    public SetShutdownHandler(
+        ILogger<SetShutdownHandler> logger,
+        ISystemService systemService)
     {
-        this.systemService = systemService;
         this.logger = logger;
+        this.systemService = systemService;
     }
 
     public async Task<SetShutdownResult> ExecuteAsync(
         SetShutdownParameters parameters,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(parameters);
+
         var request = parameters.Request;
         var mode = request?.Mode ?? ShutdownMode.Immediate;
 
-        logger.LogInformation("SetShutdown requested: Mode={Mode}, DelaySeconds={DelaySeconds}, ScheduledAt={ScheduledAt}",
+        logger.LogInformation(
+            "SetShutdown requested: Mode={Mode}, DelaySeconds={DelaySeconds}, ScheduledAt={ScheduledAt}",
             mode,
             request?.DelaySeconds,
             request?.ScheduledAt);
@@ -41,7 +46,9 @@ public sealed class SetShutdownHandler : ISetShutdownHandler
             .InitiateShutdownAsync(mode, delaySeconds, scheduledAt, cancellationToken)
             .ConfigureAwait(false);
 
-        logger.LogInformation("SetShutdown accepted: ScheduledAt={ScheduledAt}", response.ShutdownScheduledAt);
+        logger.LogInformation(
+            "SetShutdown accepted: ScheduledAt={ScheduledAt}",
+            response.ShutdownScheduledAt);
 
         return SetShutdownResult.Accepted(response);
     }

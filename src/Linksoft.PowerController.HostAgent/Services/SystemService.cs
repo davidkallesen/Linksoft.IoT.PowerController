@@ -1,17 +1,11 @@
 // ReSharper disable InvertIf
 namespace Linksoft.PowerController.HostAgent.Services;
 
-public sealed class SystemService : ISystemService, IDisposable
+public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposable
 {
-    private readonly DateTimeOffset serviceStartTime;
+    private readonly DateTimeOffset serviceStartTime = DateTimeOffset.UtcNow;
     private readonly SemaphoreSlim shutdownLock = new(1, 1);
     private CancellationTokenSource? shutdownCts;
-    private Task? shutdownTask;
-
-    public SystemService()
-    {
-        serviceStartTime = DateTimeOffset.UtcNow;
-    }
 
     public bool IsShutdownInProgress { get; private set; }
 
@@ -31,7 +25,11 @@ public sealed class SystemService : ISystemService, IDisposable
             Hostname: Environment.MachineName);
     }
 
-    public async Task<ShutdownResponse> InitiateShutdownAsync(ShutdownMode mode, int? delaySeconds, DateTimeOffset? scheduledAt, CancellationToken cancellationToken = default)
+    public async Task<ShutdownResponse> InitiateShutdownAsync(
+        ShutdownMode mode,
+        int? delaySeconds,
+        DateTimeOffset? scheduledAt,
+        CancellationToken cancellationToken = default)
     {
         await shutdownLock
             .WaitAsync(cancellationToken)
@@ -56,7 +54,7 @@ public sealed class SystemService : ISystemService, IDisposable
             ShutdownScheduledAt = shutdownTime;
 
             shutdownCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            shutdownTask = ExecuteShutdownAsync(delay, shutdownCts.Token);
+            _ = ExecuteShutdownAsync(delay, shutdownCts.Token);
 
             return new ShutdownResponse(
                 Message: $"Shutdown scheduled for {shutdownTime:O}",
@@ -68,7 +66,8 @@ public sealed class SystemService : ISystemService, IDisposable
         }
     }
 
-    public async Task CancelShutdownAsync(CancellationToken cancellationToken = default)
+    public async Task CancelShutdownAsync(
+        CancellationToken cancellationToken = default)
     {
         await shutdownLock
             .WaitAsync(cancellationToken)
@@ -97,41 +96,47 @@ public sealed class SystemService : ISystemService, IDisposable
         }
     }
 
-    public void CancelShutdown()
-    {
-        CancelShutdownAsync().GetAwaiter().GetResult();
-    }
-
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         if (shutdownCts is not null)
         {
-            shutdownCts.CancelAsync().GetAwaiter().GetResult();
+            await shutdownCts
+                .CancelAsync()
+                .ConfigureAwait(false);
             shutdownCts.Dispose();
         }
 
         shutdownLock.Dispose();
     }
 
-    private static DateTimeOffset CalculateShutdownTime(ShutdownMode mode, int? delaySeconds, DateTimeOffset? scheduledAt)
+    public void Dispose()
     {
-        return mode switch
+        DisposeAsync()
+            .AsTask()
+            .GetAwaiter()
+            .GetResult();
+    }
+
+    private static DateTimeOffset CalculateShutdownTime(
+        ShutdownMode mode,
+        int? delaySeconds,
+        DateTimeOffset? scheduledAt)
+        => mode switch
         {
             ShutdownMode.Immediate => DateTimeOffset.UtcNow,
             ShutdownMode.Delayed => DateTimeOffset.UtcNow.AddSeconds(delaySeconds ?? 60),
             ShutdownMode.Scheduled => scheduledAt ?? DateTimeOffset.UtcNow,
             _ => DateTimeOffset.UtcNow,
         };
-    }
 
     private static TimeSpan GetServerUptime()
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
             return TimeSpan.FromMilliseconds(Environment.TickCount64);
         }
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        if (OperatingSystem.IsLinux())
         {
             try
             {
@@ -148,7 +153,9 @@ public sealed class SystemService : ISystemService, IDisposable
         return TimeSpan.FromMilliseconds(Environment.TickCount64);
     }
 
-    private async Task ExecuteShutdownAsync(TimeSpan delay, CancellationToken cancellationToken)
+    private async Task ExecuteShutdownAsync(
+        TimeSpan delay,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -165,7 +172,10 @@ public sealed class SystemService : ISystemService, IDisposable
         }
         finally
         {
-            await shutdownLock.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+            await shutdownLock
+                .WaitAsync(CancellationToken.None)
+                .ConfigureAwait(false);
+
             try
             {
                 IsShutdownInProgress = false;
@@ -182,7 +192,7 @@ public sealed class SystemService : ISystemService, IDisposable
     {
         ProcessStartInfo startInfo;
 
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        if (OperatingSystem.IsWindows())
         {
             startInfo = new ProcessStartInfo
             {
@@ -192,7 +202,7 @@ public sealed class SystemService : ISystemService, IDisposable
                 CreateNoWindow = true,
             };
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        else if (OperatingSystem.IsLinux())
         {
             startInfo = new ProcessStartInfo
             {

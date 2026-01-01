@@ -1,0 +1,2 @@
+# MSBuild response file - suppress NU1503 for nanoFramework project
+-nowarn:NU1503

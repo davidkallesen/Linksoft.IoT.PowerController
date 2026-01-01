@@ -20,6 +20,26 @@ try
     builder.Services.AddSingleton<ISystemService, SystemService>();
     builder.Services.AddApiHandlersFromHostAgent();
 
+    // MQTT configuration
+    builder.Services.Configure<MqttOptions>(
+        builder.Configuration.GetSection("Mqtt"));
+
+    var mqttOptions = builder.Configuration
+        .GetSection("Mqtt")
+        .Get<MqttOptions>();
+
+    if (mqttOptions?.Enabled == true)
+    {
+        Log.Information("MQTT enabled with mode: {Mode}", mqttOptions.Mode);
+
+        if (mqttOptions.IsEmbeddedMode)
+        {
+            builder.Services.AddHostedService<EmbeddedMqttBroker>();
+        }
+
+        builder.Services.AddHostedService<MqttService>();
+    }
+
     var app = builder.Build();
 
     app.UseSerilogRequestLogging();

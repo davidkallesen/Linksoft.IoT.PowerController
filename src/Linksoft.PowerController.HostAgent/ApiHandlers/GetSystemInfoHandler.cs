@@ -5,22 +5,26 @@ namespace Linksoft.PowerController.HostAgent.ApiHandlers;
 /// </summary>
 public sealed class GetSystemInfoHandler : IGetSystemInfoHandler
 {
-    private readonly ISystemService systemService;
     private readonly ILogger<GetSystemInfoHandler> logger;
+    private readonly ISystemService systemService;
 
-    public GetSystemInfoHandler(ISystemService systemService, ILogger<GetSystemInfoHandler> logger)
+    public GetSystemInfoHandler(
+        ILogger<GetSystemInfoHandler> logger,
+        ISystemService systemService)
     {
-        this.systemService = systemService;
         this.logger = logger;
+        this.systemService = systemService;
     }
 
-    public Task<GetSystemInfoResult> ExecuteAsync(CancellationToken cancellationToken = default)
+    public Task<GetSystemInfoResult> ExecuteAsync(
+        CancellationToken cancellationToken = default)
     {
         logger.LogInformation("GetSystemInfo requested");
 
         var systemInfo = systemService.GetSystemInfo();
 
-        logger.LogInformation("GetSystemInfo completed: ServiceUptime={ServiceUptime}, ShutdownInProgress={ShutdownInProgress}",
+        logger.LogInformation(
+            "GetSystemInfo completed: ServiceUptime={ServiceUptime}, ShutdownInProgress={ShutdownInProgress}",
             systemInfo.ServiceUptime,
             systemInfo.ShutdownInProgress);
 

@@ -16,8 +16,13 @@
     <AssemblyName>Linksoft.PowerController.Controller.Esp32</AssemblyName>
     <TargetFrameworkVersion>v1.0</TargetFrameworkVersion>
   </PropertyGroup>
+  <!-- Suppress NU1503 warning when nanoFramework SDK is not installed -->
+  <PropertyGroup Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')">
+    <NoWarn>$(NoWarn);NU1503</NoWarn>
+  </PropertyGroup>
   <Import Project="$(NanoFrameworkProjectSystemPath)NFProjectSystem.props" Condition="Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.props')" />
   <ItemGroup>
+    <Compile Include="GlobalUsings.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -30,6 +35,19 @@
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets" Condition="Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
+  <!-- Fallback targets when nanoFramework SDK is not installed (silent skip) -->
+  <Target Name="Build" Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
+  <Target Name="Rebuild" Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
+  <Target Name="Clean" Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
+  <Target Name="Restore" Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
+  <!-- NuGet restore support targets - tell NuGet to skip this project -->
+  <Target Name="_IsProjectRestoreSupported" Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" Returns="false" />
+  <Target Name="_GetRestoreProjectStyle" Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')">
+    <PropertyGroup>
+      <RestoreProjectStyle>Unknown</RestoreProjectStyle>
+    </PropertyGroup>
+  </Target>
+  <Target Name="CollectPackageReferences" Condition="!Exists('$(NanoFrameworkProjectSystemPath)NFProjectSystem.CSharp.targets')" />
   <ProjectExtensions>
     <ProjectCapabilities>
       <ProjectConfigurationsDeclaredAsItems />

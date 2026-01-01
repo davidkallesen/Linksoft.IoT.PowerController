@@ -44,8 +44,57 @@ Update coding rules with:
 ```
 src/
 ├── Linksoft.PowerController.HostAgent/           # .NET 10 Windows/Linux service
+│   ├── ApiHandlers/                              # REST API request handlers
+│   ├── Configuration/                            # MQTT and app configuration models
+│   ├── Services/                                 # Business logic and MQTT services
+│   └── wwwroot/                                  # Static UI (index.html)
 ├── Linksoft.PowerController.Controller.RaspberryPi/  # .NET 10 console app
 └── Linksoft.PowerController.Controller.Esp32/    # nanoFramework embedded
 ```
 
 The HostAgent coordinates with controllers via REST API and/or MQTT. Controllers run on edge devices (Raspberry Pi, ESP32) to manage local power states.
+
+## HostAgent API
+
+Uses `atc-rest-api-source-generator` with OpenAPI spec (`HostAgent.yaml`). Generated code in `obj/Generated/`.
+
+### REST Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/system/info` | GET | Get system information (uptime, hostname, shutdown status) |
+| `/system/shutdown` | POST | Initiate shutdown (modes: Immediate, Delayed, Scheduled) |
+| `/scalar/v1` | GET | Interactive API documentation |
+
+### MQTT Topics (when enabled)
+
+| Topic | Direction | Description |
+|-------|-----------|-------------|
+| `powercontroller/{hostname}/status` | Publish | Auto-published status (configurable interval) |
+| `powercontroller/{hostname}/info/request` | Subscribe | Request system info |
+| `powercontroller/{hostname}/info/response` | Publish | System info response |
+| `powercontroller/{hostname}/shutdown/request` | Subscribe | Receive shutdown commands |
+| `powercontroller/{hostname}/shutdown/response` | Publish | Shutdown confirmation |
+
+### Configuration (appsettings.json)
+
+```json
+{
+  "Mqtt": {
+    "Enabled": false,
+    "Mode": "External",
+    "External": { "Host": "localhost", "Port": 1883, "UseTls": false },
+    "Embedded": { "Port": 1883 },
+    "Topics": { "BaseTopic": "powercontroller", "StatusInterval": 30 }
+  }
+}
+```
+
+Set `Mode` to `"Embedded"` to run a built-in MQTT broker.
+
+## Key Dependencies
+
+- **Atc.Rest.Api.SourceGenerator** - OpenAPI-based code generation
+- **MQTTnet** / **MQTTnet.Server** - MQTT client and embedded broker
+- **Serilog** - Structured logging to file (`logs/hostagent-*.log`)
+- **Scalar.AspNetCore** - API documentation UI

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!--
+    This file intentionally does NOT import the parent Directory.Build.props.
+    nanoFramework projects are incompatible with modern .NET SDK settings
+    (Nullable, ImplicitUsings, LangVersion 14.0, NuGet analyzers, etc.)
+
+    Note: NU1503 warning is expected during restore as NuGet cannot process
+    nanoFramework project files. This warning is suppressed via NoWarn in
+    the root Directory.Build.props.
+  -->
+</Project>

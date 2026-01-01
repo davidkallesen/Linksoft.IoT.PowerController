@@ -8,7 +8,9 @@ public interface ISystemService
 
     DateTimeOffset? ShutdownScheduledAt { get; }
 
-    Task<ShutdownResponse> InitiateShutdownAsync(ShutdownMode mode, int? delaySeconds, DateTimeOffset? scheduledAt, CancellationToken cancellationToken = default);
-
-    void CancelShutdown();
+    Task<ShutdownResponse> InitiateShutdownAsync(
+        ShutdownMode mode,
+        int? delaySeconds,
+        DateTimeOffset? scheduledAt,
+        CancellationToken cancellationToken = default);
 }

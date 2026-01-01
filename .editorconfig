@@ -578,3 +578,6 @@ dotnet_diagnostic.S6964.severity = none             # Value type property used a
 # Custom - Code Analyzers Rules
 ##########################################
 [*.{cs,csx,cake}]
+
+dotnet_diagnostic.CA1031.severity = none            # Execption
+dotnet_diagnostic.CA1848.severity = none            # Logging
