@@ -3,7 +3,8 @@ namespace Linksoft.PowerController.HostAgent.Configuration;
 /// <summary>
 /// Configuration options for MQTT connectivity.
 /// </summary>
-public sealed class MqttOptions
+[OptionsBinding("Mqtt", ValidateOnStart = true)]
+public sealed partial class MqttOptions
 {
     /// <summary>
     /// Gets or sets a value indicating whether MQTT is enabled.

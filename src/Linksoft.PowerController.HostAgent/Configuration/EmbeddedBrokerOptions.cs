@@ -3,7 +3,8 @@ namespace Linksoft.PowerController.HostAgent.Configuration;
 /// <summary>
 /// Configuration options for the embedded MQTT broker.
 /// </summary>
-public sealed class EmbeddedBrokerOptions
+[OptionsBinding("Mqtt:Embedded")]
+public sealed partial class EmbeddedBrokerOptions
 {
     /// <summary>
     /// Gets or sets the port to listen on.

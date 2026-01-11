@@ -581,3 +581,8 @@ dotnet_diagnostic.S6964.severity = none             # Value type property used a
 
 dotnet_diagnostic.CA1031.severity = none            # Execption
 dotnet_diagnostic.CA1848.severity = none            # Logging
+
+dotnet_diagnostic.S6667.severity = none             # Logging
+
+dotnet_diagnostic.SA1611.severity = none            # Documentation
+dotnet_diagnostic.SA1615.severity = none            # Documentation

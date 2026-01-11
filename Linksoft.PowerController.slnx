@@ -10,6 +10,7 @@
       <Configuration Solution="*|*" Project="*|*" Build="false" />
     </Project>
     <Project Path="src/Linksoft.PowerController.Controller.RaspberryPi/Linksoft.PowerController.Controller.RaspberryPi.csproj" />
+    <Project Path="src/Linksoft.PowerController.HostAgent.Client/Linksoft.PowerController.HostAgent.Client.csproj" />
     <Project Path="src/Linksoft.PowerController.HostAgent/Linksoft.PowerController.HostAgent.csproj" Id="1ea2561f-afa4-4d81-bcdc-9e8eccd64b91" />
   </Folder>
 </Solution>

@@ -19,7 +19,7 @@ IoT Power Controller system for remote power management across multiple platform
 dotnet run --project src/Linksoft.PowerController.HostAgent
 
 # Access API documentation
-# http://localhost:5000/scalar/v1
+# https://localhost:5100/scalar/v1
 ```
 
 For production deployment as a Windows Service or Linux daemon, see [HostAgent Installation Guide](docs/HostAgent.md).
@@ -52,6 +52,22 @@ dotnet build src/Linksoft.PowerController.HostAgent
 ```
 
 > **Note:** The ESP32 project requires Visual Studio with the nanoFramework extension.
+
+## 🔧 Source Generators
+
+This project leverages compile-time source generation for minimal boilerplate and Native AOT compatibility:
+
+| Generator | Purpose |
+|-----------|---------|
+| **Atc.Rest.Api.SourceGenerator** | REST API code from OpenAPI specs |
+| **Atc.SourceGenerators** | DI registration and options binding |
+
+### Features Used
+
+- **`[Registration]`** - Automatic service registration with conditional support
+- **`[OptionsBinding]`** - Configuration class binding with validation
+
+See [CLAUDE.md](CLAUDE.md) for detailed usage examples.
 
 ## 📚 Documentation
 

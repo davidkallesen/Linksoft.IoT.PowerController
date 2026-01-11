@@ -3,7 +3,8 @@ namespace Linksoft.PowerController.HostAgent.Configuration;
 /// <summary>
 /// Configuration options for connecting to an external MQTT broker.
 /// </summary>
-public sealed class ExternalBrokerOptions
+[OptionsBinding("Mqtt:External")]
+public sealed partial class ExternalBrokerOptions
 {
     /// <summary>
     /// Gets or sets the broker hostname or IP address.

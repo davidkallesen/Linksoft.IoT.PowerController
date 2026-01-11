@@ -3,6 +3,7 @@ namespace Linksoft.PowerController.HostAgent.Services;
 /// <summary>
 /// Embedded MQTT broker using MQTTnet server.
 /// </summary>
+[Registration(Lifetime.Singleton, Condition = "Mqtt:Enabled")]
 public sealed class EmbeddedMqttBroker : IHostedService, IDisposable
 {
     private readonly ILogger<EmbeddedMqttBroker> logger;

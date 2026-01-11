@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Power Controller - Raspberry Pi</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #00d9ff; margin-bottom: 20px; }
+        h2 { color: #00d9ff; margin-bottom: 15px; font-size: 1.2em; }
+        .card { background: #16213e; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .status-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #0f3460; }
+        .status-row:last-child { border-bottom: none; }
+        .status-label { color: #888; }
+        .status-value { font-weight: 500; }
+        .badge { padding: 4px 12px; border-radius: 12px; font-size: 0.85em; font-weight: 500; }
+        .badge-online { background: #00a86b; }
+        .badge-offline { background: #dc3545; }
+        .badge-warning { background: #ffc107; color: #000; }
+        .badge-idle { background: #6c757d; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #0f3460; }
+        th { color: #00d9ff; font-weight: 500; }
+        tr:hover { background: #0f3460; }
+        button { background: #00d9ff; color: #000; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 500; }
+        button:hover { background: #00b8d9; }
+        button:disabled { background: #555; color: #888; cursor: not-allowed; }
+        .btn-danger { background: #dc3545; color: #fff; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-secondary { background: #6c757d; color: #fff; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+        input, select { background: #0f3460; border: 1px solid #1a1a2e; color: #eee; padding: 10px; border-radius: 6px; width: 100%; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #888; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: #16213e; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .progress-list { margin-top: 15px; }
+        .progress-item { display: flex; justify-content: space-between; padding: 8px 0; }
+        .refresh-btn { background: transparent; border: 1px solid #00d9ff; color: #00d9ff; padding: 5px 10px; font-size: 0.85em; }
+        .refresh-btn:hover { background: #00d9ff; color: #000; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .api-link { color: #00d9ff; text-decoration: none; }
+        .api-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Power Controller</h1>
+            <a href="/scalar/v1" class="api-link">API Documentation</a>
+        </div>
+
+        <div class="grid">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h2>Controller Status</h2>
+                    <button class="refresh-btn" onclick="loadSystemInfo()">Refresh</button>
+                </div>
+                <div id="system-info">
+                    <div class="status-row"><span class="status-label">Hostname</span><span class="status-value" id="hostname">-</span></div>
+                    <div class="status-row"><span class="status-label">Service Uptime</span><span class="status-value" id="service-uptime">-</span></div>
+                    <div class="status-row"><span class="status-label">Shutdown State</span><span class="status-value"><span class="badge badge-idle" id="shutdown-state">Idle</span></span></div>
+                    <div class="status-row"><span class="status-label">Devices</span><span class="status-value" id="device-count">0</span></div>
+                    <div class="status-row"><span class="status-label">MQTT</span><span class="status-value" id="mqtt-status">-</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>Shutdown Control</h2>
+                <p style="color: #888; margin-bottom: 15px;">Initiate coordinated shutdown of all enabled devices.</p>
+                <div class="form-group">
+                    <label>Delay (seconds)</label>
+                    <input type="number" id="shutdown-delay" value="0" min="0" max="3600">
+                </div>
+                <div class="btn-group">
+                    <button onclick="initiateShutdown()" id="btn-shutdown">Shutdown All</button>
+                    <button class="btn-secondary" onclick="cancelShutdown()" id="btn-cancel" disabled>Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h2>Managed Devices</h2>
+                <div>
+                    <button class="refresh-btn" onclick="loadDeviceStatuses()">Refresh</button>
+                    <button onclick="showAddDeviceModal()">+ Add Device</button>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>IP Address</th>
+                        <th>Type</th>
+                        <th>Relay</th>
+                        <th>Status</th>
+                        <th>Uptime</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="devices-table">
+                    <tr><td colspan="7" style="text-align: center; color: #888;">Loading...</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="card" id="shutdown-progress-card" style="display: none;">
+            <h2>Shutdown Progress</h2>
+            <div id="shutdown-progress"></div>
+        </div>
+    </div>
+
+    <!-- Add Device Modal -->
+    <div class="modal" id="add-device-modal">
+        <div class="modal-content">
+            <h2>Add Device</h2>
+            <form onsubmit="createDevice(event)">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" id="device-name" required>
+                </div>
+                <div class="form-group">
+                    <label>IP Address</label>
+                    <input type="text" id="device-ip" required>
+                </div>
+                <div class="form-group">
+                    <label>Type</label>
+                    <select id="device-type" onchange="toggleEndpointType()">
+                        <option value="HostAgent">HostAgent</option>
+                        <option value="EsuEcos50210">ESU Ecos 50210</option>
+                    </select>
+                </div>
+                <div class="form-group" id="endpoint-type-group">
+                    <label>Endpoint Type</label>
+                    <select id="device-endpoint-type">
+                        <option value="RestApi">REST API</option>
+                        <option value="Mqtt">MQTT</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Port</label>
+                    <input type="number" id="device-port" value="5000">
+                </div>
+                <div class="form-group">
+                    <label>Relay ID</label>
+                    <input type="number" id="device-relay" value="1" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Shutdown Order</label>
+                    <input type="number" id="device-order" value="0" min="0">
+                </div>
+                <div class="btn-group">
+                    <button type="submit">Create</button>
+                    <button type="button" class="btn-secondary" onclick="hideAddDeviceModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let statusInterval;
+
+        async function loadSystemInfo() {
+            try {
+                const res = await fetch(`${API_BASE}/system/info`);
+                if (!res.ok) {
+                    console.error('Failed to load system info:', res.status);
+                    return;
+                }
+                const data = await res.json();
+                document.getElementById('hostname').textContent = data.hostname || '-';
+                document.getElementById('service-uptime').textContent = formatUptime(data.serviceUptime);
+                document.getElementById('device-count').textContent = data.deviceCount || 0;
+                document.getElementById('mqtt-status').textContent = data.mqttConnected ? 'Connected' : 'Disconnected';
+
+                const stateEl = document.getElementById('shutdown-state');
+                stateEl.textContent = data.shutdownState;
+                stateEl.className = 'badge badge-' + getStateBadgeClass(data.shutdownState);
+
+                document.getElementById('btn-shutdown').disabled = data.shutdownState !== 'Idle';
+                document.getElementById('btn-cancel').disabled = !['Initiating', 'Monitoring'].includes(data.shutdownState);
+
+                if (data.shutdownState !== 'Idle') {
+                    loadShutdownProgress();
+                } else {
+                    document.getElementById('shutdown-progress-card').style.display = 'none';
+                }
+            } catch (e) {
+                console.error('Failed to load system info:', e);
+            }
+        }
+
+        async function loadDeviceStatuses() {
+            try {
+                const res = await fetch(`${API_BASE}/devices/status`);
+                if (!res.ok) {
+                    console.error('Failed to load device statuses:', res.status);
+                    return;
+                }
+                const statuses = await res.json();
+
+                const tbody = document.getElementById('devices-table');
+                if (!statuses || statuses.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #888;">No devices configured</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = statuses.map(s => `
+                    <tr>
+                        <td>${s.deviceName || '-'}</td>
+                        <td>${s.hostname || '-'}</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td><span class="badge badge-${getConnectionBadgeClass(s.connectionState)}">${s.connectionState}</span></td>
+                        <td>${s.serviceUptime ? formatUptime(s.serviceUptime) : '-'}</td>
+                        <td><button class="btn-secondary" style="padding: 5px 10px; font-size: 0.85em;" onclick="deleteDevice('${s.deviceId}')">Delete</button></td>
+                    </tr>
+                `).join('');
+            } catch (e) {
+                console.error('Failed to load device statuses:', e);
+            }
+        }
+
+        async function loadShutdownProgress() {
+            try {
+                const res = await fetch(`${API_BASE}/shutdown/status`);
+                if (!res.ok) return;
+                const progress = await res.json();
+
+                const card = document.getElementById('shutdown-progress-card');
+                const container = document.getElementById('shutdown-progress');
+
+                if (progress.state === 'Idle') {
+                    card.style.display = 'none';
+                    return;
+                }
+
+                card.style.display = 'block';
+                const deviceStatuses = progress.deviceStatuses || [];
+                container.innerHTML = `
+                    <div class="status-row">
+                        <span class="status-label">State</span>
+                        <span class="badge badge-${getStateBadgeClass(progress.state)}">${progress.state}</span>
+                    </div>
+                    <div class="progress-list">
+                        ${deviceStatuses.map(d => `
+                            <div class="progress-item">
+                                <span>${d.deviceName}</span>
+                                <span class="badge badge-${getPhaseBadgeClass(d.phase)}">${d.phase}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    ${progress.errorMessage ? `<p style="color: #dc3545; margin-top: 10px;">${progress.errorMessage}</p>` : ''}
+                `;
+            } catch (e) {
+                console.error('Failed to load shutdown progress:', e);
+            }
+        }
+
+        async function initiateShutdown() {
+            if (!confirm('Are you sure you want to initiate shutdown of all devices?')) return;
+
+            const delay = parseInt(document.getElementById('shutdown-delay').value) || 0;
+
+            try {
+                const res = await fetch(`${API_BASE}/shutdown`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ delaySeconds: delay })
+                });
+
+                if (res.ok) {
+                    loadSystemInfo();
+                    startProgressPolling();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + err.message);
+                }
+            } catch (e) {
+                console.error('Failed to initiate shutdown:', e);
+            }
+        }
+
+        async function cancelShutdown() {
+            try {
+                await fetch(`${API_BASE}/shutdown/cancel`, { method: 'POST' });
+                loadSystemInfo();
+            } catch (e) {
+                console.error('Failed to cancel shutdown:', e);
+            }
+        }
+
+        async function createDevice(event) {
+            event.preventDefault();
+
+            const deviceType = document.getElementById('device-type').value;
+            const body = {
+                name: document.getElementById('device-name').value,
+                ipAddress: document.getElementById('device-ip').value,
+                type: deviceType,
+                endpointType: deviceType === 'HostAgent'
+                    ? document.getElementById('device-endpoint-type').value
+                    : 'RestApi',
+                port: parseInt(document.getElementById('device-port').value),
+                relayId: parseInt(document.getElementById('device-relay').value),
+                shutdownOrder: parseInt(document.getElementById('device-order').value),
+                enabled: true
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/devices`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+
+                if (res.ok) {
+                    hideAddDeviceModal();
+                    loadDeviceStatuses();
+                    loadSystemInfo();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + err.message);
+                }
+            } catch (e) {
+                console.error('Failed to create device:', e);
+            }
+        }
+
+        async function deleteDevice(id) {
+            if (!confirm('Are you sure you want to delete this device?')) return;
+
+            try {
+                await fetch(`${API_BASE}/devices/${id}`, { method: 'DELETE' });
+                loadDeviceStatuses();
+                loadSystemInfo();
+            } catch (e) {
+                console.error('Failed to delete device:', e);
+            }
+        }
+
+        function showAddDeviceModal() {
+            document.getElementById('add-device-modal').classList.add('active');
+        }
+
+        function hideAddDeviceModal() {
+            document.getElementById('add-device-modal').classList.remove('active');
+            document.getElementById('device-name').value = '';
+            document.getElementById('device-ip').value = '';
+        }
+
+        function toggleEndpointType() {
+            const type = document.getElementById('device-type').value;
+            document.getElementById('endpoint-type-group').style.display = type === 'HostAgent' ? 'block' : 'none';
+        }
+
+        function formatUptime(uptime) {
+            if (!uptime) return '-';
+            const parts = uptime.split(':');
+            if (parts.length >= 3) {
+                const hours = parseInt(parts[0]);
+                const days = Math.floor(hours / 24);
+                const h = hours % 24;
+                return days > 0 ? `${days}d ${h}h` : `${h}h ${parts[1]}m`;
+            }
+            return uptime;
+        }
+
+        function getStateBadgeClass(state) {
+            switch (state) {
+                case 'Idle': return 'idle';
+                case 'Initiating': case 'Monitoring': return 'warning';
+                case 'PowerCutExecuted': return 'online';
+                case 'Failed': case 'Cancelled': return 'offline';
+                default: return 'idle';
+            }
+        }
+
+        function getConnectionBadgeClass(state) {
+            switch (state) {
+                case 'Online': return 'online';
+                case 'ShuttingDown': return 'warning';
+                case 'PoweredOff': case 'NotResponding': return 'offline';
+                default: return 'idle';
+            }
+        }
+
+        function getPhaseBadgeClass(phase) {
+            switch (phase) {
+                case 'PoweredOff': return 'online';
+                case 'Failed': return 'offline';
+                case 'Pending': return 'idle';
+                default: return 'warning';
+            }
+        }
+
+        function startProgressPolling() {
+            if (statusInterval) clearInterval(statusInterval);
+            statusInterval = setInterval(() => {
+                loadSystemInfo();
+                loadShutdownProgress();
+            }, 2000);
+        }
+
+        // Initial load
+        loadSystemInfo();
+        loadDeviceStatuses();
+        setInterval(loadDeviceStatuses, 10000);
+    </script>
+</body>
+</html>

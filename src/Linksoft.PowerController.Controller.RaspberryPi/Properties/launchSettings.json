@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Linksoft.PowerController.Controller.RaspberryPi": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:47485;http://localhost:47486"
+    }
+  }
+}

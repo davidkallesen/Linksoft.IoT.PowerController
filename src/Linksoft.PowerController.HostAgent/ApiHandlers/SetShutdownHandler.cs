@@ -3,19 +3,11 @@ namespace Linksoft.PowerController.HostAgent.ApiHandlers;
 /// <summary>
 /// Handler business logic for the SetShutdown operation.
 /// </summary>
-public sealed class SetShutdownHandler : ISetShutdownHandler
+public sealed class SetShutdownHandler(
+    ILogger<SetShutdownHandler> logger,
+    ISystemService systemService)
+    : ISetShutdownHandler
 {
-    private readonly ILogger<SetShutdownHandler> logger;
-    private readonly ISystemService systemService;
-
-    public SetShutdownHandler(
-        ILogger<SetShutdownHandler> logger,
-        ISystemService systemService)
-    {
-        this.logger = logger;
-        this.systemService = systemService;
-    }
-
     public async Task<SetShutdownResult> ExecuteAsync(
         SetShutdownParameters parameters,
         CancellationToken cancellationToken = default)

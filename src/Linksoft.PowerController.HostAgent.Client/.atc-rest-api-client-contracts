@@ -1,0 +1,4 @@
+{
+  "generate": true,
+  "namespace": "HostAgent.Client"
+}

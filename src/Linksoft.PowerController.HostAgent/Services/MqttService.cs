@@ -3,8 +3,10 @@ namespace Linksoft.PowerController.HostAgent.Services;
 /// <summary>
 /// MQTT service for publishing status and handling commands.
 /// </summary>
+[Registration(Lifetime.Singleton, As = typeof(IMqttService), Condition = "Mqtt:Enabled")]
 public sealed class MqttService : IMqttService, IDisposable
 {
+    private const int ConnectionLockTimeoutInMs = 30_000;
     private readonly SemaphoreSlim connectionLock = new(1, 1);
     private readonly MqttOptions options;
     private readonly ISystemService systemService;
@@ -162,9 +164,7 @@ public sealed class MqttService : IMqttService, IDisposable
 
     private async Task ConnectAsync(CancellationToken cancellationToken)
     {
-        await connectionLock
-            .WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var lockAcquired = false;
 
         try
         {
@@ -172,6 +172,10 @@ public sealed class MqttService : IMqttService, IDisposable
             {
                 return;
             }
+
+            lockAcquired = await connectionLock
+                .WaitAsync(ConnectionLockTimeoutInMs, cancellationToken)
+                .ConfigureAwait(false);
 
             var clientOptions = BuildClientOptions();
 
@@ -188,7 +192,10 @@ public sealed class MqttService : IMqttService, IDisposable
         }
         finally
         {
-            connectionLock.Release();
+            if (lockAcquired)
+            {
+                connectionLock.Release();
+            }
         }
     }
 

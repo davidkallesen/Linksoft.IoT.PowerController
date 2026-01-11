@@ -132,7 +132,7 @@
         <p style="margin: 0 0 15px 0; color: #666;">
             For developers: View the full OpenAPI specification with interactive testing capabilities.
         </p>
-        <a href="/scalar/v1" style="display: inline-block; background: #0066cc; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none;">
+        <a href="/scalar/v1" target="_blank" rel="noopener noreferrer" style="display: inline-block; background: #0066cc; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none;">
             Open Scalar API Documentation
         </a>
     </div>
@@ -151,7 +151,7 @@
             statusDiv.innerHTML = '';
 
             try {
-                const response = await fetch('/system/info');
+                const response = await fetch('/api/v1/system/info');
                 const data = await response.json();
 
                 if (response.ok) {
@@ -200,7 +200,7 @@
             }
 
             try {
-                const response = await fetch('/system/shutdown', {
+                const response = await fetch('/api/v1/system/shutdown', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(body)

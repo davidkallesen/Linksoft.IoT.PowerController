@@ -1,0 +1,491 @@
+openapi: "3.0.0"
+info:
+  version: 1.0.0
+  title: Power Controller - Raspberry Pi
+  description: REST API for Raspberry Pi power controller with device management and orchestrated shutdown
+  license:
+    name: MIT
+servers:
+  - url: /api/v1
+paths:
+  /system/info:
+    get:
+      summary: Get controller system information
+      operationId: getSystemInfo
+      tags: [system]
+      responses:
+        '200':
+          description: System info retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ControllerSystemInfo"
+
+  /devices:
+    get:
+      summary: List all managed devices
+      operationId: getDevices
+      tags: [devices]
+      responses:
+        '200':
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Device"
+    post:
+      summary: Create a new device
+      operationId: createDevice
+      tags: [devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDeviceRequest"
+      responses:
+        '201':
+          description: Device created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /devices/status:
+    get:
+      summary: Get status of all devices
+      operationId: getAllDeviceStatuses
+      tags: [devices]
+      responses:
+        '200':
+          description: Status of all devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeviceStatus"
+
+  /devices/discover:
+    post:
+      summary: Discover devices on the network
+      operationId: discoverDevices
+      tags: [devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscoverDevicesRequest"
+      responses:
+        '200':
+          description: List of discovered devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DiscoveredDevice"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /devices/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get device by ID
+      operationId: getDeviceById
+      tags: [devices]
+      responses:
+        '200':
+          description: Device found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Update device
+      operationId: updateDevice
+      tags: [devices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDeviceRequest"
+      responses:
+        '200':
+          description: Device updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Device"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: Delete device
+      operationId: deleteDevice
+      tags: [devices]
+      responses:
+        '204':
+          description: Device deleted
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /devices/{id}/status:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      summary: Get device current status
+      operationId: getDeviceStatus
+      tags: [devices]
+      responses:
+        '200':
+          description: Device status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeviceStatus"
+        '404':
+          description: Device not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /shutdown:
+    post:
+      summary: Initiate shutdown sequence
+      operationId: initiateShutdown
+      tags: [shutdown]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InitiateShutdownRequest"
+      responses:
+        '202':
+          description: Shutdown initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShutdownProgress"
+        '409':
+          description: Shutdown already in progress
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /shutdown/status:
+    get:
+      summary: Get shutdown sequence progress
+      operationId: getShutdownStatus
+      tags: [shutdown]
+      responses:
+        '200':
+          description: Shutdown status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShutdownProgress"
+
+  /shutdown/cancel:
+    post:
+      summary: Cancel shutdown sequence
+      operationId: cancelShutdown
+      tags: [shutdown]
+      responses:
+        '200':
+          description: Shutdown cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShutdownProgress"
+        '409':
+          description: Cannot cancel at current state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+components:
+  schemas:
+    ControllerSystemInfo:
+      title: ControllerSystemInfo
+      type: object
+      required: [serviceUptime, serverUptime, hostname, shutdownState, deviceCount]
+      properties:
+        serviceUptime:
+          type: string
+        serverUptime:
+          type: string
+        hostname:
+          type: string
+        operatingSystem:
+          type: string
+        shutdownState:
+          $ref: "#/components/schemas/ShutdownState"
+        deviceCount:
+          type: integer
+        mqttConnected:
+          type: boolean
+
+    Device:
+      title: Device
+      type: object
+      required: [id, name, ipAddress, type, relayId, enabled]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        ipAddress:
+          type: string
+        type:
+          $ref: "#/components/schemas/DeviceType"
+        endpointType:
+          $ref: "#/components/schemas/EndpointType"
+        port:
+          type: integer
+        shutdownOrder:
+          type: integer
+        relayId:
+          type: integer
+        enabled:
+          type: boolean
+
+    CreateDeviceRequest:
+      title: CreateDeviceRequest
+      type: object
+      required: [name, ipAddress, type]
+      properties:
+        name:
+          type: string
+        ipAddress:
+          type: string
+        type:
+          $ref: "#/components/schemas/DeviceType"
+        endpointType:
+          $ref: "#/components/schemas/EndpointType"
+        port:
+          type: integer
+          default: 5000
+        shutdownOrder:
+          type: integer
+          default: 0
+        relayId:
+          type: integer
+          default: 1
+        enabled:
+          type: boolean
+          default: true
+
+    UpdateDeviceRequest:
+      title: UpdateDeviceRequest
+      type: object
+      properties:
+        name:
+          type: string
+        ipAddress:
+          type: string
+        type:
+          $ref: "#/components/schemas/DeviceType"
+        endpointType:
+          $ref: "#/components/schemas/EndpointType"
+        port:
+          type: integer
+        shutdownOrder:
+          type: integer
+        relayId:
+          type: integer
+        enabled:
+          type: boolean
+
+    DeviceType:
+      type: string
+      enum: [HostAgent, EsuEcos50210]
+
+    EndpointType:
+      type: string
+      enum: [RestApi, Mqtt]
+
+    DeviceStatus:
+      title: DeviceStatus
+      type: object
+      required: [deviceId, deviceName, connectionState, lastChecked]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        deviceName:
+          type: string
+        connectionState:
+          $ref: "#/components/schemas/DeviceConnectionState"
+        shutdownInProgress:
+          type: boolean
+        shutdownScheduledAt:
+          type: string
+          format: date-time
+        serviceUptime:
+          type: string
+        serverUptime:
+          type: string
+        hostname:
+          type: string
+        operatingSystem:
+          type: string
+        lastChecked:
+          type: string
+          format: date-time
+        lastError:
+          type: string
+
+    DeviceConnectionState:
+      type: string
+      enum: [Unknown, Online, ShuttingDown, NotResponding, PoweredOff]
+
+    InitiateShutdownRequest:
+      title: InitiateShutdownRequest
+      type: object
+      properties:
+        delaySeconds:
+          type: integer
+          minimum: 0
+          default: 0
+
+    ShutdownProgress:
+      title: ShutdownProgress
+      type: object
+      required: [state, startedAt, deviceStatuses, canCancel]
+      properties:
+        state:
+          $ref: "#/components/schemas/ShutdownState"
+        startedAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        deviceStatuses:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeviceShutdownStatus"
+        errorMessage:
+          type: string
+        canCancel:
+          type: boolean
+
+    ShutdownState:
+      type: string
+      enum: [Idle, Initiating, Monitoring, ReadyForPowerCut, PowerCutExecuted, Cancelled, Failed]
+
+    DeviceShutdownStatus:
+      title: DeviceShutdownStatus
+      type: object
+      required: [deviceId, deviceName, relayId, phase]
+      properties:
+        deviceId:
+          type: string
+          format: uuid
+        deviceName:
+          type: string
+        relayId:
+          type: integer
+        phase:
+          $ref: "#/components/schemas/DeviceShutdownPhase"
+        commandSentAt:
+          type: string
+          format: date-time
+        acknowledgedAt:
+          type: string
+          format: date-time
+        poweredOffAt:
+          type: string
+          format: date-time
+        error:
+          type: string
+
+    DeviceShutdownPhase:
+      type: string
+      enum: [Pending, CommandSent, Acknowledged, WaitingForPowerOff, PoweredOff, Failed]
+
+    Error:
+      title: Error
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+
+    DiscoverDevicesRequest:
+      title: DiscoverDevicesRequest
+      type: object
+      properties:
+        cidrRange:
+          type: string
+          description: CIDR range to scan (e.g., "192.168.1.0/24")
+        startIpAddress:
+          type: string
+          description: Start IP address for range scan
+        endIpAddress:
+          type: string
+          description: End IP address for range scan
+
+    DiscoveredDevice:
+      title: DiscoveredDevice
+      type: object
+      required: [ipAddress, openPorts]
+      properties:
+        ipAddress:
+          type: string
+        hostname:
+          type: string
+        macAddress:
+          type: string
+        macVendor:
+          type: string
+        openPorts:
+          type: array
+          items:
+            type: integer

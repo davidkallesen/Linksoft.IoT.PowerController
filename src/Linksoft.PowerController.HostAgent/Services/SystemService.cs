@@ -1,10 +1,12 @@
 // ReSharper disable InvertIf
 namespace Linksoft.PowerController.HostAgent.Services;
 
+[Registration(Lifetime.Singleton, As = typeof(ISystemService))]
 public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposable
 {
-    private readonly DateTimeOffset serviceStartTime = DateTimeOffset.UtcNow;
+    private const int ShutdownLockTimeoutInMs = 30_000;
     private readonly SemaphoreSlim shutdownLock = new(1, 1);
+    private readonly DateTimeOffset serviceStartTime = DateTimeOffset.UtcNow;
     private CancellationTokenSource? shutdownCts;
 
     public bool IsShutdownInProgress { get; private set; }
@@ -31,9 +33,7 @@ public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposabl
         DateTimeOffset? scheduledAt,
         CancellationToken cancellationToken = default)
     {
-        await shutdownLock
-            .WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var lockAcquired = false;
 
         try
         {
@@ -41,6 +41,10 @@ public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposabl
             {
                 throw new InvalidOperationException("Shutdown already in progress");
             }
+
+            lockAcquired = await shutdownLock
+                .WaitAsync(ShutdownLockTimeoutInMs, cancellationToken)
+                .ConfigureAwait(false);
 
             var shutdownTime = CalculateShutdownTime(mode, delaySeconds, scheduledAt);
             var delay = shutdownTime - DateTimeOffset.UtcNow;
@@ -62,16 +66,17 @@ public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposabl
         }
         finally
         {
-            shutdownLock.Release();
+            if (lockAcquired)
+            {
+                shutdownLock.Release();
+            }
         }
     }
 
     public async Task CancelShutdownAsync(
         CancellationToken cancellationToken = default)
     {
-        await shutdownLock
-            .WaitAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var lockAcquired = false;
 
         try
         {
@@ -79,6 +84,10 @@ public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposabl
             {
                 return;
             }
+
+            lockAcquired = await shutdownLock
+                .WaitAsync(ShutdownLockTimeoutInMs, cancellationToken)
+                .ConfigureAwait(false);
 
             if (shutdownCts is not null)
             {
@@ -92,7 +101,10 @@ public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposabl
         }
         finally
         {
-            shutdownLock.Release();
+            if (lockAcquired)
+            {
+                shutdownLock.Release();
+            }
         }
     }
 
@@ -161,7 +173,9 @@ public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposabl
         {
             if (delay > TimeSpan.Zero)
             {
-                await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                await Task
+                    .Delay(delay, cancellationToken)
+                    .ConfigureAwait(false);
             }
 
             ExecuteSystemShutdown();
@@ -172,18 +186,23 @@ public sealed class SystemService : ISystemService, IDisposable, IAsyncDisposabl
         }
         finally
         {
-            await shutdownLock
-                .WaitAsync(CancellationToken.None)
-                .ConfigureAwait(false);
+            var lockAcquired = false;
 
             try
             {
+                lockAcquired = await shutdownLock
+                    .WaitAsync(ShutdownLockTimeoutInMs, CancellationToken.None)
+                    .ConfigureAwait(false);
+
                 IsShutdownInProgress = false;
                 ShutdownScheduledAt = null;
             }
             finally
             {
-                shutdownLock.Release();
+                if (lockAcquired)
+                {
+                    shutdownLock.Release();
+                }
             }
         }
     }

@@ -3,7 +3,8 @@ namespace Linksoft.PowerController.HostAgent.Configuration;
 /// <summary>
 /// Configuration options for MQTT topics.
 /// </summary>
-public sealed class TopicOptions
+[OptionsBinding("Mqtt:Topics")]
+public sealed partial class TopicOptions
 {
     /// <summary>
     /// Gets or sets the base topic prefix.

@@ -1,3 +1,5 @@
+using System.Threading;
+
 namespace Linksoft.PowerController.Controller.Esp32
 {
     public class Program

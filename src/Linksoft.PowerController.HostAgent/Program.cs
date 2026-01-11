@@ -1,5 +1,4 @@
 // ReSharper disable StringLiteralTypo
-
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
     .WriteTo.File(
@@ -21,28 +20,15 @@ try
 
     builder.Services.AddSerilog();
     builder.Services.AddOpenApi();
-    builder.Services.AddSingleton<ISystemService, SystemService>();
+
+    // Auto-generated options binding from [OptionsBinding] attributes
+    builder.Services.AddOptionsFromHostAgent(builder.Configuration);
+
+    // Auto-generated service registration from [Registration] attributes
+    builder.Services.AddDependencyRegistrationsFromHostAgent(builder.Configuration);
+
+    // API handlers (generated from OpenAPI spec)
     builder.Services.AddApiHandlersFromHostAgent();
-
-    // MQTT configuration
-    builder.Services.Configure<MqttOptions>(
-        builder.Configuration.GetSection("Mqtt"));
-
-    var mqttOptions = builder.Configuration
-        .GetSection("Mqtt")
-        .Get<MqttOptions>();
-
-    if (mqttOptions?.Enabled == true)
-    {
-        Log.Information("MQTT enabled with mode: {Mode}", mqttOptions.Mode);
-
-        if (mqttOptions.IsEmbeddedMode)
-        {
-            builder.Services.AddHostedService<EmbeddedMqttBroker>();
-        }
-
-        builder.Services.AddHostedService<MqttService>();
-    }
 
     var app = builder.Build();
 
